@@ -3,6 +3,7 @@
 A reinforcement learning-based system for automated security incident response that learns to detect and respond to cyber attacks (brute-force login attacks and ransomware-like behavior) without explicit detection rules.
 
 ## 🎯 Project Overview
+python main.py train --episodes 500 --n-step --dueling --compare
 
 This project implements an RL agent that:
 - Observes noisy behavioral metrics (login rates, file access patterns, CPU usage, **rate-of-change features**)

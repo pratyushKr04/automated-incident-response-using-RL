@@ -1,0 +1,18 @@
+{
+  "bruteforce": {
+    "benign_login_rate": 4.6248952009616255,
+    "attack_login_rate": 7.5954724409448815
+  },
+  "ransomware": {
+    "normal_file_rate": 1.671119965137272,
+    "execution_file_rate": 4.336761243959856,
+    "encryption_file_rate": 7.450480223071362,
+    "post_attack_rate": 10.0
+  },
+  "cpu_usage": {
+    "normal_mean": 30.0,
+    "normal_std": 5.0,
+    "attack_mean": 80.0,
+    "attack_std": 5.0
+  }
+}

@@ -30,29 +30,47 @@ from src.train import Trainer
 from src.evaluate import TrainingVisualizer, PolicyAnalyzer
 
 
-def run_preprocess(args):
+def run_preprocess(args, silent: bool = False):
     """Run data preprocessing pipeline."""
-    print("\n" + "="*60)
-    print("DATA PREPROCESSING")
-    print("="*60)
+    if not silent:
+        print("\n" + "="*60)
+        print("DATA PREPROCESSING")
+        print("="*60)
     
-    params = preprocess_data(save_path="src/extracted_params.json")
+    params = preprocess_data()  # Uses default path (project_root/extracted_params.json)
     
-    print("\nPreprocessing complete!")
+    if not silent:
+        print("\nPreprocessing complete!")
     return params
 
 
 def run_train(args):
     """Train the RL agent."""
+    # ALWAYS run preprocessing first
     print("\n" + "="*60)
-    print("TRAINING RL AGENT")
+    print("STEP 1: DATA PREPROCESSING")
+    print("="*60)
+    print("Extracting parameters from datasets...")
+    
+    try:
+        run_preprocess(args, silent=False)
+    except Exception as e:
+        print(f"Warning: Preprocessing issue: {e}")
+        print("Continuing with available data...")
+    
+    print("\n" + "="*60)
+    print("STEP 2: TRAINING RL AGENT")
     print("="*60)
     
     trainer = Trainer(
         attack_type=args.attack_type,
         checkpoint_dir=args.checkpoint_dir,
         log_dir=args.log_dir,
-        use_prioritized_replay=args.prioritized_replay
+        use_prioritized_replay=getattr(args, 'prioritized_replay', False),
+        use_n_step=getattr(args, 'n_step', False),
+        n_steps=getattr(args, 'n_steps', 3),
+        use_dueling=getattr(args, 'dueling', False),
+        use_enhanced_features=not getattr(args, 'no_enhanced', False)
     )
     
     metrics = trainer.train(
@@ -104,10 +122,12 @@ def run_evaluate(args):
     )
     
     model_path = os.path.join(args.checkpoint_dir, args.model_name)
-    if os.path.exists(model_path):
+    tf_model_path = model_path.replace('.pt', '_q.weights.h5')
+    
+    if os.path.exists(tf_model_path):
         agent.load(model_path)
     else:
-        print(f"Model not found at {model_path}")
+        print(f"Model not found at {tf_model_path}")
         return None
     
     # Run evaluation
@@ -200,16 +220,24 @@ def run_demo(args):
     agent = None
     model_path = os.path.join(args.checkpoint_dir, "best_model.pt")
     
-    if os.path.exists(model_path):
+    # Check for TensorFlow model files (saved as _q.weights.h5)
+    tf_model_path = model_path.replace('.pt', '_q.weights.h5')
+    
+    if os.path.exists(tf_model_path):
+        # Create agent with same architecture as training
+        # Try to detect if dueling was used by checking layer count in saved file
+        use_dueling = getattr(args, 'dueling', True)  # Default to True if trained with dueling
+        
         agent = DQNAgent(
             state_size=env.observation_space.shape[0],
             action_size=env.action_space.n,
-            config=config.agent
+            config=config.agent,
+            use_dueling=use_dueling
         )
         agent.load(model_path)
         print(f"Loaded trained agent from {model_path}")
     else:
-        print("No trained model found. Using random agent.")
+        print(f"No trained model found at {tf_model_path}. Using random agent.")
     
     # Run demo episodes
     action_names = env.action_names
@@ -347,6 +375,14 @@ Examples:
                              help='Checkpoint save frequency')
     train_parser.add_argument('--prioritized-replay', action='store_true',
                              help='Use prioritized experience replay')
+    train_parser.add_argument('--n-step', action='store_true',
+                             help='Use N-step returns for better credit assignment')
+    train_parser.add_argument('--n-steps', type=int, default=3,
+                             help='Number of steps for N-step returns')
+    train_parser.add_argument('--dueling', action='store_true',
+                             help='Use dueling network architecture')
+    train_parser.add_argument('--no-enhanced', action='store_true',
+                             help='Disable enhanced 10D features (use 4D state)')
     train_parser.add_argument('--compare-baselines', action='store_true',
                              help='Compare with baseline agents after training')
     
@@ -375,6 +411,8 @@ Examples:
     demo_parser.add_argument('--attack-type', type=str, default='random',
                             choices=['bruteforce', 'ransomware', 'both', 'random'])
     demo_parser.add_argument('--checkpoint-dir', type=str, default='models')
+    demo_parser.add_argument('--dueling', action='store_true', default=True,
+                            help='Use dueling architecture (must match training)')
     demo_parser.add_argument('--interactive', action='store_true',
                             help='Pause after each step')
     
@@ -389,6 +427,10 @@ Examples:
     all_parser.add_argument('--eval-freq', type=int, default=50)
     all_parser.add_argument('--save-freq', type=int, default=100)
     all_parser.add_argument('--prioritized-replay', action='store_true')
+    all_parser.add_argument('--n-step', action='store_true')
+    all_parser.add_argument('--n-steps', type=int, default=3)
+    all_parser.add_argument('--dueling', action='store_true')
+    all_parser.add_argument('--no-enhanced', action='store_true')
     
     args = parser.parse_args()
     

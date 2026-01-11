@@ -419,6 +419,54 @@ class Trainer:
         results['threshold'] = {'avg_reward': np.mean(threshold_rewards), 'std_reward': np.std(threshold_rewards)}
         reward_arrays['threshold'] = threshold_rewards
         
+        # Snort-inspired agent (based on real IDS rules)
+        print("Evaluating Snort-Inspired Agent...")
+        snort_rewards = []
+        for _ in range(num_episodes):
+            state, _ = self.env.reset()
+            episode_reward = 0.0
+            while True:
+                action = BaselineAgent.snort_inspired_agent(state)
+                state, reward, terminated, truncated, _ = self.env.step(action)
+                episode_reward += reward
+                if terminated or truncated:
+                    break
+            snort_rewards.append(episode_reward)
+        results['snort'] = {'avg_reward': np.mean(snort_rewards), 'std_reward': np.std(snort_rewards)}
+        reward_arrays['snort'] = snort_rewards
+        
+        # NIST 800-61 incident response agent
+        print("Evaluating NIST 800-61 Agent...")
+        nist_rewards = []
+        for _ in range(num_episodes):
+            state, _ = self.env.reset()
+            episode_reward = 0.0
+            while True:
+                action = BaselineAgent.nist_incident_response_agent(state)
+                state, reward, terminated, truncated, _ = self.env.step(action)
+                episode_reward += reward
+                if terminated or truncated:
+                    break
+            nist_rewards.append(episode_reward)
+        results['nist_800_61'] = {'avg_reward': np.mean(nist_rewards), 'std_reward': np.std(nist_rewards)}
+        reward_arrays['nist_800_61'] = nist_rewards
+        
+        # MITRE ATT&CK pattern matching agent
+        print("Evaluating MITRE ATT&CK Agent...")
+        mitre_rewards = []
+        for _ in range(num_episodes):
+            state, _ = self.env.reset()
+            episode_reward = 0.0
+            while True:
+                action = BaselineAgent.mitre_attack_agent(state)
+                state, reward, terminated, truncated, _ = self.env.step(action)
+                episode_reward += reward
+                if terminated or truncated:
+                    break
+            mitre_rewards.append(episode_reward)
+        results['mitre_attack'] = {'avg_reward': np.mean(mitre_rewards), 'std_reward': np.std(mitre_rewards)}
+        reward_arrays['mitre_attack'] = mitre_rewards
+        
         # Do-nothing agent
         print("Evaluating Do-Nothing Agent...")
         nothing_rewards = []

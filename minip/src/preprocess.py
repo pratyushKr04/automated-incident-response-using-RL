@@ -340,23 +340,31 @@ class DataPreprocessor:
     Main preprocessor combining CICIDS and CERT data processing.
     """
     
-    def __init__(self, config=None):
+    def __init__(self, data_dir: Optional[str] = None):
         """
-        Initialize with configuration.
+        Initialize with data directory.
         
         Args:
-            config: Configuration object with data paths
+            data_dir: Directory containing the datasets (defaults to project_root/data)
         """
-        if config is None:
-            from config import get_config
-            config = get_config()
+        # Use project root to find data directory (don't import get_config - circular dependency!)
+        project_root = Path(__file__).parent.parent.resolve()
         
-        self.config = config
+        if data_dir is None:
+            data_dir = project_root / "data"
+        else:
+            data_dir = Path(data_dir)
+        
+        # Set up paths
+        self.cicids_monday_path = str(data_dir / "Monday-WorkingHours.pcap_ISCX.csv")
+        self.cicids_tuesday_path = str(data_dir / "Tuesday-WorkingHours.pcap_ISCX.csv")
+        self.cert_file_path = str(data_dir / "file.csv")
+        
         self.cicids_processor = CICIDSPreprocessor(
-            config.cicids_monday_path,
-            config.cicids_tuesday_path
+            self.cicids_monday_path,
+            self.cicids_tuesday_path
         )
-        self.cert_processor = CERTPreprocessor(config.cert_file_path)
+        self.cert_processor = CERTPreprocessor(self.cert_file_path)
         self.combined_params = {}
     
     def process_all(self, save_path: Optional[str] = None) -> Dict:
@@ -383,14 +391,15 @@ class DataPreprocessor:
         ransomware_params = self.cert_processor.get_attack_parameters()
         
         # Combine parameters
+        # CPU values are modeled (not from datasets - CICIDS/CERT don't have CPU metrics)
         self.combined_params = {
             **bruteforce_params,
             **ransomware_params,
             "cpu_usage": {
-                "normal_mean": self.config.attack.cpu_normal_mean,
-                "normal_std": self.config.attack.cpu_normal_std,
-                "attack_mean": self.config.attack.cpu_attack_mean,
-                "attack_std": self.config.attack.cpu_attack_std
+                "normal_mean": 30.0,   # Synthetic: typical idle CPU
+                "normal_std": 5.0,
+                "attack_mean": 80.0,   # Synthetic: high CPU during attack (crypto, scanning)
+                "attack_std": 5.0
             }
         }
         
@@ -408,16 +417,21 @@ class DataPreprocessor:
         return self.combined_params
 
 
-def preprocess_data(save_path: str = "src/extracted_params.json") -> Dict:
+def preprocess_data(save_path: str = None) -> Dict:
     """
     Convenience function to run preprocessing pipeline.
     
     Args:
-        save_path: Path to save extracted parameters
+        save_path: Path to save extracted parameters (defaults to project_root/extracted_params.json)
         
     Returns:
         Extracted parameters dictionary
     """
+    if save_path is None:
+        # Default to project root
+        project_root = Path(__file__).parent.parent.resolve()
+        save_path = str(project_root / "extracted_params.json")
+    
     preprocessor = DataPreprocessor()
     return preprocessor.process_all(save_path)
 
