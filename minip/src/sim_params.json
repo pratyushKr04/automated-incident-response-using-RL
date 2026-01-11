@@ -1,0 +1,14 @@
+{
+  "bf_normal_lambda": 16.01786,
+  "bf_attack_lambda": 7.89584387423202,
+  "bf_normal_mean_duration": 10389271.161264572,
+  "bf_attack_mean_duration": 5218976.002096133,
+  "rw_normal_file_rate_mean": 0.6009894181809071,
+  "rw_normal_file_rate_std": 1.2643739362059552,
+  "rw_attack_file_rate_mean": 12.369409660107335,
+  "rw_attack_file_rate_std": 3.495800500215989,
+  "rw_normal_cpu_mean": 30.0,
+  "rw_normal_cpu_std": 5.0,
+  "rw_attack_cpu_mean": 80.0,
+  "rw_attack_cpu_std": 5.0
+}
