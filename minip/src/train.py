@@ -96,8 +96,6 @@ class Trainer:
         use_prioritized_replay: bool = False,
         use_n_step: bool = False,
         n_steps: int = 3,
-        use_dueling: bool = False,
-        use_enhanced_features: bool = True,
         checkpoint_dir: str = "models",
         log_dir: str = "logs"
     ):
@@ -110,8 +108,6 @@ class Trainer:
             use_prioritized_replay: Use prioritized experience replay
             use_n_step: Use N-step returns for better credit assignment
             n_steps: Number of steps for N-step returns
-            use_dueling: Use dueling network architecture
-            use_enhanced_features: Use enhanced 10D observation space
             checkpoint_dir: Directory for model checkpoints
             log_dir: Directory for training logs
         """
@@ -119,17 +115,16 @@ class Trainer:
         self.attack_type = attack_type
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
-        self.use_enhanced_features = use_enhanced_features
         
         # Create directories
         os.makedirs(checkpoint_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
         
-        # Initialize environment
+        # Initialize environment (always use enhanced 10D features)
         self.env = IncidentResponseEnv(
             config=self.config,
             attack_type=attack_type,
-            use_enhanced_features=use_enhanced_features
+            use_enhanced_features=True  # Always use 10D features
         )
         
         # Initialize agent
@@ -143,7 +138,7 @@ class Trainer:
             use_prioritized_replay=use_prioritized_replay,
             use_n_step=use_n_step,
             n_steps=n_steps,
-            use_dueling=use_dueling
+            use_dueling=True  # Always use dueling architecture
         )
         
         # Training metrics
@@ -158,12 +153,11 @@ class Trainer:
         print(f"\n{'='*60}")
         print("Incident Response RL Training Initialized")
         print(f"{'='*60}")
-        print(f"State size: {state_size}")
+        print(f"State size: {state_size} (10D enhanced features)")
         print(f"Action size: {action_size}")
         print(f"Attack type: {attack_type}")
-        print(f"Enhanced features: {use_enhanced_features}")
+        print(f"Architecture: Dueling DQN")
         print(f"N-step returns: {use_n_step} (n={n_steps})" if use_n_step else "N-step returns: disabled")
-        print(f"Dueling architecture: {use_dueling}")
         print(f"Device: {self.agent.device}")
         print(f"{'='*60}\n")
     
@@ -272,7 +266,7 @@ class Trainer:
             # Save best model
             if reward > self.best_reward:
                 self.best_reward = reward
-                self.agent.save(os.path.join(self.checkpoint_dir, 'best_model.pt'))
+                self.agent.save(os.path.join(self.checkpoint_dir, 'best_model.h5'))
         
         # Training complete
         total_time = time.time() - start_time
@@ -281,14 +275,14 @@ class Trainer:
             print(f"Best episode reward: {self.best_reward:.2f}")
         
         # Save final model and metrics
-        self.agent.save(os.path.join(self.checkpoint_dir, 'final_model.pt'))
+        self.agent.save(os.path.join(self.checkpoint_dir, 'final_model.h5'))
         self.metrics.save(os.path.join(self.log_dir, 'training_metrics.json'))
         
         return self.metrics
     
     def _save_checkpoint(self, episode: int) -> None:
         """Save training checkpoint."""
-        path = os.path.join(self.checkpoint_dir, f'checkpoint_ep{episode}.pt')
+        path = os.path.join(self.checkpoint_dir, f'checkpoint_ep{episode}.h5')
         self.agent.save(path)
     
     def _evaluate_and_log(self, episode: int) -> Dict:
@@ -532,6 +526,35 @@ class Trainer:
                 print("  (Statistical tests skipped - scipy not available)")
             
             print("-"*70)
+        
+        # Save results to file
+        import json
+        results_path = os.path.join(self.log_dir, 'baseline_comparison.json')
+        
+        # Helper function to convert numpy types to Python types
+        def convert_to_serializable(v):
+            if isinstance(v, (np.floating, float)):
+                return float(v)
+            elif isinstance(v, (np.integer, int)):
+                return int(v)
+            elif isinstance(v, (np.bool_, bool)):
+                return bool(v)
+            elif isinstance(v, np.ndarray):
+                return v.tolist()
+            return v
+        
+        # Convert results to serializable format
+        save_results = {}
+        for key, value in results.items():
+            if isinstance(value, dict):
+                save_results[key] = {k: convert_to_serializable(v) 
+                                     for k, v in value.items() if k != 'rewards'}
+            else:
+                save_results[key] = convert_to_serializable(value)
+        
+        with open(results_path, 'w') as f:
+            json.dump(save_results, f, indent=2)
+        print(f"\nResults saved to: {results_path}")
         
         return results
 

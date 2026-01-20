@@ -491,43 +491,57 @@ class DQNAgent:
         """Save model to file."""
         os.makedirs(os.path.dirname(path) if os.path.dirname(path) else '.', exist_ok=True)
         
+        # Normalize path - use .h5 extension
+        base_path = path.replace('.pt', '').replace('.h5', '')
+        
         # Save weights
-        self.q_network.save_weights(path.replace('.pt', '_q.weights.h5'))
-        self.target_network.save_weights(path.replace('.pt', '_target.weights.h5'))
+        self.q_network.save_weights(f"{base_path}.h5")
+        self.target_network.save_weights(f"{base_path}_target.h5")
         
         # Save metadata
         import json
         metadata = {
             'epsilon': self.epsilon,
             'episode_count': self.episode_count,
-            'training_step': self.training_step
+            'training_step': self.training_step,
+            'use_dueling': hasattr(self.q_network, 'use_dueling')  # Track architecture
         }
-        with open(path.replace('.pt', '_meta.json'), 'w') as f:
+        with open(f"{base_path}_meta.json", 'w') as f:
             json.dump(metadata, f)
         
-        print(f"Model saved to {path}")
+        print(f"Model saved to {base_path}.h5")
     
     def load(self, path: str) -> None:
         """Load model from file."""
-        # Load weights
-        q_path = path.replace('.pt', '_q.weights.h5')
-        target_path = path.replace('.pt', '_target.weights.h5')
-        meta_path = path.replace('.pt', '_meta.json')
+        # Normalize path
+        base_path = path.replace('.pt', '').replace('.h5', '').replace('_q.weights', '').replace('_meta', '')
+        
+        # Try new format first, then old format
+        q_path = f"{base_path}.h5"
+        target_path = f"{base_path}_target.h5"
+        meta_path = f"{base_path}_meta.json"
+        
+        # Fall back to old format if needed
+        if not os.path.exists(q_path):
+            q_path = f"{base_path}_q.weights.h5"
+            target_path = f"{base_path}_target.weights.h5"
         
         if os.path.exists(q_path):
             self.q_network.load_weights(q_path)
-            self.target_network.load_weights(target_path)
+            if os.path.exists(target_path):
+                self.target_network.load_weights(target_path)
+            print(f"Model loaded from {q_path}")
+        else:
+            print(f"Warning: Model file not found at {q_path}")
         
         # Load metadata
         import json
         if os.path.exists(meta_path):
             with open(meta_path, 'r') as f:
                 metadata = json.load(f)
-            self.epsilon = metadata['epsilon']
-            self.episode_count = metadata['episode_count']
-            self.training_step = metadata['training_step']
-        
-        print(f"Model loaded from {path}")
+            self.epsilon = metadata.get('epsilon', 0.01)
+            self.episode_count = metadata.get('episode_count', 0)
+            self.training_step = metadata.get('training_step', 0)
     
     def get_q_values(self, state: np.ndarray) -> np.ndarray:
         """Get Q-values for all actions."""

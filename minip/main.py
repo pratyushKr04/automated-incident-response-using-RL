@@ -1,20 +1,9 @@
 """
 Main Entry Point for Automated Incident Response using Reinforcement Learning.
 
-This script provides a unified interface to:
-- Preprocess datasets
-- Train the RL agent
-- Evaluate trained models
-- Generate visualizations
-- Run demo simulations
-
-Usage:
-    python main.py preprocess    # Extract features from datasets
-    python main.py train         # Train the RL agent
-    python main.py evaluate      # Evaluate trained model
-    python main.py visualize     # Generate training plots
-    python main.py demo          # Run interactive demo
-    python main.py all           # Run complete pipeline
+Simplified interface with two commands:
+- python main.py preprocess    # Extract features from datasets
+- python main.py train         # Train the RL agent (auto-saves figures)
 """
 
 import argparse
@@ -45,7 +34,7 @@ def run_preprocess(args, silent: bool = False):
 
 
 def run_train(args):
-    """Train the RL agent."""
+    """Train the RL agent with automatic visualization."""
     # ALWAYS run preprocessing first
     print("\n" + "="*60)
     print("STEP 1: DATA PREPROCESSING")
@@ -68,9 +57,7 @@ def run_train(args):
         log_dir=args.log_dir,
         use_prioritized_replay=getattr(args, 'prioritized_replay', False),
         use_n_step=getattr(args, 'n_step', False),
-        n_steps=getattr(args, 'n_steps', 3),
-        use_dueling=getattr(args, 'dueling', False),
-        use_enhanced_features=not getattr(args, 'no_enhanced', False)
+        n_steps=getattr(args, 'n_steps', 3)
     )
     
     metrics = trainer.train(
@@ -81,259 +68,56 @@ def run_train(args):
     )
     
     # Final evaluation
-    print("\nRunning final evaluation...")
+    print("\n" + "="*60)
+    print("STEP 3: FINAL EVALUATION")
+    print("="*60)
     eval_results = trainer.evaluate(num_episodes=100)
     
-    print("\n" + "="*60)
-    print("FINAL EVALUATION RESULTS")
-    print("="*60)
     print(f"Average Reward: {eval_results['avg_reward']:.2f} ± {eval_results['std_reward']:.2f}")
     print(f"Success Rate: {eval_results['success_rate']*100:.1f}%")
     print(f"Avg False Positives: {eval_results['avg_false_positives']:.2f}")
     print(f"Avg Attacks Contained: {eval_results['avg_contained']:.2f}")
     
-    # Compare with baselines if requested
+    # Compare with baselines
     if args.compare_baselines:
-        print("\nComparing with baseline agents...")
+        print("\n" + "="*60)
+        print("STEP 4: BASELINE COMPARISON")
+        print("="*60)
         trainer.compare_with_baselines(num_episodes=100)
     
-    return trainer
-
-
-def run_evaluate(args):
-    """Evaluate a trained model."""
+    # Auto-generate visualizations
     print("\n" + "="*60)
-    print("MODEL EVALUATION")
+    print("STEP 5: GENERATING VISUALIZATIONS")
     print("="*60)
     
-    from src.incident_env import IncidentResponseEnv
-    from src.agent import DQNAgent
-    
-    config = get_config()
-    
-    # Load environment
-    env = IncidentResponseEnv(config=config, attack_type=args.attack_type)
-    
-    # Load agent
-    agent = DQNAgent(
-        state_size=env.observation_space.shape[0],
-        action_size=env.action_space.n,
-        config=config.agent
-    )
-    
-    model_path = os.path.join(args.checkpoint_dir, args.model_name)
-    tf_model_path = model_path.replace('.pt', '_q.weights.h5')
-    
-    if os.path.exists(tf_model_path):
-        agent.load(model_path)
-    else:
-        print(f"Model not found at {tf_model_path}")
-        return None
-    
-    # Run evaluation
-    print(f"\nEvaluating model: {model_path}")
-    
-    rewards = []
-    successes = 0
-    
-    for ep in range(args.num_episodes):
-        state, _ = env.reset()
-        episode_reward = 0.0
-        
-        while True:
-            action = agent.select_action(state, training=False)
-            state, reward, terminated, truncated, info = env.step(action)
-            episode_reward += reward
-            
-            if terminated or truncated:
-                break
-        
-        rewards.append(episode_reward)
-        stats = info.get('episode_stats', {})
-        if stats.get('attacks_contained', 0) > 0 or stats.get('false_positives', 0) == 0:
-            successes += 1
-        
-        if (ep + 1) % 10 == 0:
-            print(f"Episode {ep+1}/{args.num_episodes}: Reward = {episode_reward:.1f}")
-    
-    # Print results
-    print("\n" + "-"*40)
-    print("EVALUATION RESULTS")
-    print("-"*40)
-    print(f"Episodes: {args.num_episodes}")
-    print(f"Average Reward: {sum(rewards)/len(rewards):.2f}")
-    print(f"Max Reward: {max(rewards):.2f}")
-    print(f"Min Reward: {min(rewards):.2f}")
-    print(f"Success Rate: {successes/args.num_episodes*100:.1f}%")
+    try:
+        visualizer = TrainingVisualizer(
+            log_dir=args.log_dir,
+            output_dir=args.output_dir
+        )
+        visualizer.plot_all()
+        print(f"All figures saved to: {args.output_dir}/")
+    except Exception as e:
+        print(f"Warning: Could not generate visualizations: {e}")
     
     # Policy analysis
-    if args.analyze_policy:
-        print("\nAnalyzing learned policy...")
-        analyzer = PolicyAnalyzer(agent, env, output_dir=args.output_dir)
+    try:
+        analyzer = PolicyAnalyzer(trainer.agent, trainer.env, output_dir=args.output_dir)
         analyzer.analyze_action_preferences()
         analyzer.plot_q_value_heatmap()
-        print(f"Policy analysis saved to: {args.output_dir}/")
-    
-    return rewards
-
-
-def run_visualize(args):
-    """Generate training visualizations."""
-    print("\n" + "="*60)
-    print("GENERATING VISUALIZATIONS")
-    print("="*60)
-    
-    visualizer = TrainingVisualizer(
-        log_dir=args.log_dir,
-        output_dir=args.output_dir
-    )
-    
-    try:
-        visualizer.plot_all()
-        print(f"\nAll figures saved to: {args.output_dir}/")
-    except FileNotFoundError:
-        print("Error: Training metrics not found. Run training first.")
-        return None
-    
-    return visualizer
-
-
-def run_demo(args):
-    """Run interactive demonstration."""
-    print("\n" + "="*60)
-    print("INTERACTIVE DEMO")
-    print("="*60)
-    
-    from src.incident_env import IncidentResponseEnv
-    from src.agent import DQNAgent
-    
-    config = get_config()
-    
-    # Create environment with rendering
-    env = IncidentResponseEnv(
-        config=config, 
-        attack_type=args.attack_type,
-        render_mode="human"
-    )
-    
-    # Try to load trained agent
-    agent = None
-    model_path = os.path.join(args.checkpoint_dir, "best_model.pt")
-    
-    # Check for TensorFlow model files (saved as _q.weights.h5)
-    tf_model_path = model_path.replace('.pt', '_q.weights.h5')
-    
-    if os.path.exists(tf_model_path):
-        # Create agent with same architecture as training
-        # Try to detect if dueling was used by checking layer count in saved file
-        use_dueling = getattr(args, 'dueling', True)  # Default to True if trained with dueling
-        
-        agent = DQNAgent(
-            state_size=env.observation_space.shape[0],
-            action_size=env.action_space.n,
-            config=config.agent,
-            use_dueling=use_dueling
-        )
-        agent.load(model_path)
-        print(f"Loaded trained agent from {model_path}")
-    else:
-        print(f"No trained model found at {tf_model_path}. Using random agent.")
-    
-    # Run demo episodes
-    action_names = env.action_names
-    
-    for episode in range(args.num_episodes):
-        print(f"\n{'='*60}")
-        print(f"EPISODE {episode + 1}")
-        print("="*60)
-        
-        state, info = env.reset()
-        total_reward = 0.0
-        step = 0
-        
-        while True:
-            # Select action
-            if agent:
-                action = agent.select_action(state, training=False)
-                q_values = agent.get_q_values(state)
-            else:
-                action = env.action_space.sample()
-                q_values = None
-            
-            # Display state
-            print(f"\nStep {step + 1}")
-            print(f"  Observation: Login={state[0]:.0f}, Files={state[1]:.0f}, "
-                  f"CPU={state[2]:.1f}%, Time={state[3]:.2f}")
-            
-            if q_values is not None:
-                print(f"  Q-Values: {dict(zip(action_names, q_values.round(2)))}")
-            
-            print(f"  Action: {action_names[action]}")
-            
-            # Take step
-            next_state, reward, terminated, truncated, info = env.step(action)
-            
-            print(f"  Reward: {reward:.2f}")
-            print(f"  Attack Active: {info.get('is_attack_active', 'Unknown')}")
-            
-            total_reward += reward
-            state = next_state
-            step += 1
-            
-            if terminated:
-                print("\n*** SYSTEM COMPROMISED - Episode ends ***")
-                break
-            if truncated:
-                print("\n*** Episode complete (max steps reached) ***")
-                break
-            
-            # Pause for readability
-            if args.interactive:
-                input("Press Enter to continue...")
-        
-        print(f"\nEpisode {episode + 1} Summary:")
-        print(f"  Total Reward: {total_reward:.2f}")
-        print(f"  Steps: {step}")
-        
-        stats = info.get('episode_stats', {})
-        print(f"  Attacks Contained: {stats.get('attacks_contained', 0)}")
-        print(f"  False Positives: {stats.get('false_positives', 0)}")
-    
-    env.close()
-    print("\nDemo complete!")
-
-
-def run_all(args):
-    """Run complete pipeline."""
-    print("\n" + "="*60)
-    print("RUNNING COMPLETE PIPELINE")
-    print("="*60)
-    
-    # Step 1: Preprocess
-    print("\n[1/4] Preprocessing data...")
-    try:
-        run_preprocess(args)
+        print("Policy analysis saved.")
     except Exception as e:
-        print(f"Preprocessing skipped: {e}")
-    
-    # Step 2: Train
-    print("\n[2/4] Training agent...")
-    args.compare_baselines = True
-    trainer = run_train(args)
-    
-    # Step 3: Visualize
-    print("\n[3/4] Generating visualizations...")
-    run_visualize(args)
-    
-    # Step 4: Demo
-    print("\n[4/4] Running demo...")
-    args.num_episodes = 3
-    args.interactive = False
-    run_demo(args)
+        print(f"Warning: Could not analyze policy: {e}")
     
     print("\n" + "="*60)
-    print("PIPELINE COMPLETE!")
+    print("TRAINING COMPLETE!")
     print("="*60)
+    print(f"\nOutputs saved to:")
+    print(f"  Models: {args.checkpoint_dir}/")
+    print(f"  Logs: {args.log_dir}/")
+    print(f"  Figures: {args.output_dir}/")
+    
+    return trainer
 
 
 def main():
@@ -344,11 +128,7 @@ def main():
 Examples:
   python main.py preprocess             # Extract features from datasets
   python main.py train --episodes 1000  # Train for 1000 episodes
-  python main.py train --attack-type bruteforce  # Train on brute-force attacks
-  python main.py evaluate --model best_model.pt  # Evaluate specific model
-  python main.py visualize              # Generate training plots
-  python main.py demo --interactive     # Run interactive demo
-  python main.py all                    # Run complete pipeline
+  python main.py train --compare-baselines  # Train and compare with baselines
         """
     )
     
@@ -369,6 +149,8 @@ Examples:
                              help='Directory for model checkpoints')
     train_parser.add_argument('--log-dir', type=str, default='logs',
                              help='Directory for training logs')
+    train_parser.add_argument('--output-dir', type=str, default='figures',
+                             help='Directory for visualizations')
     train_parser.add_argument('--eval-freq', type=int, default=50,
                              help='Evaluation frequency (episodes)')
     train_parser.add_argument('--save-freq', type=int, default=100,
@@ -379,62 +161,12 @@ Examples:
                              help='Use N-step returns for better credit assignment')
     train_parser.add_argument('--n-steps', type=int, default=3,
                              help='Number of steps for N-step returns')
-    train_parser.add_argument('--dueling', action='store_true',
-                             help='Use dueling network architecture')
-    train_parser.add_argument('--no-enhanced', action='store_true',
-                             help='Disable enhanced 10D features (use 4D state)')
     train_parser.add_argument('--compare-baselines', action='store_true',
                              help='Compare with baseline agents after training')
     
-    # Evaluate command
-    eval_parser = subparsers.add_parser('evaluate', help='Evaluate trained model')
-    eval_parser.add_argument('--model-name', type=str, default='best_model.pt',
-                            help='Model file to evaluate')
-    eval_parser.add_argument('--checkpoint-dir', type=str, default='models')
-    eval_parser.add_argument('--num-episodes', type=int, default=100,
-                            help='Number of evaluation episodes')
-    eval_parser.add_argument('--attack-type', type=str, default='random',
-                            choices=['bruteforce', 'ransomware', 'both', 'random'])
-    eval_parser.add_argument('--analyze-policy', action='store_true',
-                            help='Analyze learned policy')
-    eval_parser.add_argument('--output-dir', type=str, default='figures')
-    
-    # Visualize command
-    viz_parser = subparsers.add_parser('visualize', help='Generate visualizations')
-    viz_parser.add_argument('--log-dir', type=str, default='logs')
-    viz_parser.add_argument('--output-dir', type=str, default='figures')
-    
-    # Demo command
-    demo_parser = subparsers.add_parser('demo', help='Run interactive demo')
-    demo_parser.add_argument('--num-episodes', type=int, default=5,
-                            help='Number of demo episodes')
-    demo_parser.add_argument('--attack-type', type=str, default='random',
-                            choices=['bruteforce', 'ransomware', 'both', 'random'])
-    demo_parser.add_argument('--checkpoint-dir', type=str, default='models')
-    demo_parser.add_argument('--dueling', action='store_true', default=True,
-                            help='Use dueling architecture (must match training)')
-    demo_parser.add_argument('--interactive', action='store_true',
-                            help='Pause after each step')
-    
-    # All command
-    all_parser = subparsers.add_parser('all', help='Run complete pipeline')
-    all_parser.add_argument('--episodes', type=int, default=500)
-    all_parser.add_argument('--attack-type', type=str, default='random',
-                           choices=['bruteforce', 'ransomware', 'both', 'random'])
-    all_parser.add_argument('--checkpoint-dir', type=str, default='models')
-    all_parser.add_argument('--log-dir', type=str, default='logs')
-    all_parser.add_argument('--output-dir', type=str, default='figures')
-    all_parser.add_argument('--eval-freq', type=int, default=50)
-    all_parser.add_argument('--save-freq', type=int, default=100)
-    all_parser.add_argument('--prioritized-replay', action='store_true')
-    all_parser.add_argument('--n-step', action='store_true')
-    all_parser.add_argument('--n-steps', type=int, default=3)
-    all_parser.add_argument('--dueling', action='store_true')
-    all_parser.add_argument('--no-enhanced', action='store_true')
-    
     args = parser.parse_args()
     
-    # Default to 'all' if no command specified
+    # Default to 'train' if no command specified
     if args.command is None:
         parser.print_help()
         return
@@ -443,10 +175,6 @@ Examples:
     commands = {
         'preprocess': run_preprocess,
         'train': run_train,
-        'evaluate': run_evaluate,
-        'visualize': run_visualize,
-        'demo': run_demo,
-        'all': run_all
     }
     
     commands[args.command](args)

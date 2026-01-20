@@ -1,0 +1,71 @@
+{
+  "dqn": {
+    "avg_reward": 37.72200000000007,
+    "std_reward": 69.52659574580088,
+    "min_reward": -66.2,
+    "max_reward": 193.00000000000043,
+    "success_rate": 0.7,
+    "avg_false_positives": 0.58,
+    "avg_contained": 0.78
+  },
+  "random": {
+    "avg_reward": -590.3220000000009,
+    "std_reward": 192.34600727855042
+  },
+  "threshold": {
+    "avg_reward": 17.383000000000052,
+    "std_reward": 63.68562954858818
+  },
+  "snort": {
+    "avg_reward": 1.2490000000000199,
+    "std_reward": 63.98155436530129
+  },
+  "nist_800_61": {
+    "avg_reward": 16.983000000000054,
+    "std_reward": 64.47384284343542
+  },
+  "mitre_attack": {
+    "avg_reward": 5.660000000000029,
+    "std_reward": 63.70017425407884
+  },
+  "do_nothing": {
+    "avg_reward": -13.432999999999993,
+    "std_reward": 57.92259844827408
+  },
+  "random_test": {
+    "statistic": 30.55335367117793,
+    "p_value": 1.1159664202340516e-59,
+    "effect_size": 4.320896713776163,
+    "is_significant": true
+  },
+  "threshold_test": {
+    "statistic": 2.1463524041167257,
+    "p_value": 0.03307091139718958,
+    "effect_size": 0.30354006795339716,
+    "is_significant": true
+  },
+  "snort_test": {
+    "statistic": 3.840803094638758,
+    "p_value": 0.00016535562297296564,
+    "effect_size": 0.5431715826842687,
+    "is_significant": true
+  },
+  "nist_800_61_test": {
+    "statistic": 2.1762343578822385,
+    "p_value": 0.03072816954435414,
+    "effect_size": 0.30776601438193657,
+    "is_significant": true
+  },
+  "mitre_attack_test": {
+    "statistic": 3.3831152291017266,
+    "p_value": 0.00086495049959435,
+    "effect_size": 0.47844474400666226,
+    "is_significant": true
+  },
+  "do_nothing_test": {
+    "statistic": 5.624590585606919,
+    "p_value": 6.505736781511326e-08,
+    "effect_size": 0.7954372288961334,
+    "is_significant": true
+  }
+}
