@@ -1,71 +1,71 @@
 {
   "dqn": {
-    "avg_reward": 37.72200000000007,
-    "std_reward": 69.52659574580088,
-    "min_reward": -66.2,
-    "max_reward": 193.00000000000043,
-    "success_rate": 0.7,
-    "avg_false_positives": 0.58,
-    "avg_contained": 0.78
+    "avg_reward": 34.326000000000064,
+    "std_reward": 73.62749706461584,
+    "min_reward": -58.9,
+    "max_reward": 268.0,
+    "success_rate": 0.66,
+    "avg_false_positives": 0.14,
+    "avg_contained": 0.54
   },
   "random": {
-    "avg_reward": -590.3220000000009,
-    "std_reward": 192.34600727855042
+    "avg_reward": -644.307000000001,
+    "std_reward": 155.65442702024288
   },
   "threshold": {
-    "avg_reward": 17.383000000000052,
-    "std_reward": 63.68562954858818
+    "avg_reward": 10.37300000000004,
+    "std_reward": 63.270605900370576
   },
   "snort": {
-    "avg_reward": 1.2490000000000199,
-    "std_reward": 63.98155436530129
+    "avg_reward": -2.0849999999999898,
+    "std_reward": 60.28700751405733
   },
   "nist_800_61": {
-    "avg_reward": 16.983000000000054,
-    "std_reward": 64.47384284343542
+    "avg_reward": 11.903000000000047,
+    "std_reward": 67.17999472313176
   },
   "mitre_attack": {
-    "avg_reward": 5.660000000000029,
-    "std_reward": 63.70017425407884
+    "avg_reward": 7.482000000000029,
+    "std_reward": 60.69377131139576
   },
   "do_nothing": {
-    "avg_reward": -13.432999999999993,
-    "std_reward": 57.92259844827408
+    "avg_reward": 2.445000000000026,
+    "std_reward": 64.98685463230241
   },
   "random_test": {
-    "statistic": 30.55335367117793,
-    "p_value": 1.1159664202340516e-59,
-    "effect_size": 4.320896713776163,
+    "statistic": 39.21437374380661,
+    "p_value": 8.68729873402135e-78,
+    "effect_size": 5.54574991884587,
     "is_significant": true
   },
   "threshold_test": {
-    "statistic": 2.1463524041167257,
-    "p_value": 0.03307091139718958,
-    "effect_size": 0.30354006795339716,
+    "statistic": 2.4550241807275484,
+    "p_value": 0.014970229075537361,
+    "effect_size": 0.3471928492338796,
     "is_significant": true
   },
   "snort_test": {
-    "statistic": 3.840803094638758,
-    "p_value": 0.00016535562297296564,
-    "effect_size": 0.5431715826842687,
+    "statistic": 3.807090745758561,
+    "p_value": 0.00018945661886321725,
+    "effect_size": 0.5384039365836858,
     "is_significant": true
   },
   "nist_800_61_test": {
-    "statistic": 2.1762343578822385,
-    "p_value": 0.03072816954435414,
-    "effect_size": 0.30776601438193657,
+    "statistic": 2.2384414471690195,
+    "p_value": 0.026314989318306836,
+    "effect_size": 0.3165634253164485,
     "is_significant": true
   },
   "mitre_attack_test": {
-    "statistic": 3.3831152291017266,
-    "p_value": 0.00086495049959435,
-    "effect_size": 0.47844474400666226,
+    "statistic": 2.7991811235690993,
+    "p_value": 0.0056489978931617115,
+    "effect_size": 0.39586399084901785,
     "is_significant": true
   },
   "do_nothing_test": {
-    "statistic": 5.624590585606919,
-    "p_value": 6.505736781511326e-08,
-    "effect_size": 0.7954372288961334,
+    "statistic": 3.230086747854023,
+    "p_value": 0.001452446655795113,
+    "effect_size": 0.4568032486456764,
     "is_significant": true
   }
 }

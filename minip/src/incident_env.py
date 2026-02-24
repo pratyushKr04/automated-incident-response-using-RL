@@ -52,8 +52,7 @@ class IncidentResponseEnv(gym.Env):
         - cpu_delta: Rate of change in CPU usage [-50, 50]
         - login_moving_avg: Moving average of login rate (smoothed) [0, 200]
         - file_moving_avg: Moving average of file rate (smoothed) [0, 500]
-        - sustained_high_activity: Binary indicator of sustained anomaly [0, 1]
-        - normalized_time: Progress through episode [0, 1]
+        - sustained_high_activity: Normalized indicator of sustained anomaly [0, 1]
     
     Action Space:
         0: do_nothing - Take no action
@@ -108,13 +107,13 @@ class IncidentResponseEnv(gym.Env):
         
         # Define observation space based on feature mode
         if use_enhanced_features:
-            # Enhanced 10-dimensional observation space
+            # Enhanced 9-dimensional observation space (no time feature for real-world applicability)
             self.observation_space = spaces.Box(
-                low=np.array([0.0, 0.0, 0.0, -100.0, -200.0, -50.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
-                high=np.array([200.0, 500.0, 100.0, 100.0, 200.0, 50.0, 200.0, 500.0, 1.0, 1.0], dtype=np.float32),
+                low=np.array([0.0, 0.0, 0.0, -100.0, -200.0, -50.0, 0.0, 0.0, 0.0], dtype=np.float32),
+                high=np.array([200.0, 500.0, 100.0, 100.0, 200.0, 50.0, 200.0, 500.0, 1.0], dtype=np.float32),
                 dtype=np.float32
             )
-            self.obs_dim = 10
+            self.obs_dim = 9
         else:
             # Original 4-dimensional observation space
             self.observation_space = spaces.Box(
@@ -340,10 +339,9 @@ class IncidentResponseEnv(gym.Env):
                 login_ma,                # Moving average of login
                 file_ma,                 # Moving average of file access
                 sustained_indicator,     # Sustained anomaly indicator
-                self.current_step / self.max_steps  # Normalized time
             ], dtype=np.float32)
             
-            # Add observation noise (except to time and sustained indicator)
+            # Add observation noise (except to sustained indicator)
             noise = np.random.normal(0, self.obs_noise_std, 8)
             obs[:8] += noise
         else:
