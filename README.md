@@ -1,229 +1,199 @@
-# Automated Incident Response Using Reinforcement Learning
+# Automated Incident Response Using Deep Reinforcement Learning
 
-A reinforcement learning-based system for automated security incident response that learns to detect and respond to cyber attacks (brute-force login attacks and ransomware-like behavior) without explicit detection rules.
+An RL-based system that learns to detect and respond to cyber attacks—brute-force login attempts and ransomware—without hardcoded detection rules. Built as a mini project, inspired by *Finding Effective Security Strategies through Reinforcement Learning and Self-Play* (Hammar & Stadler, IEEE CNSM 2021).
 
-## 🎯 Project Overview
-python main.py train --episodes 500 --n-step --dueling --compare
+## Project Overview
 
-This project implements an RL agent that:
-- Observes noisy behavioral metrics (login rates, file access patterns, CPU usage, **rate-of-change features**)
-- Learns to select defensive actions (block IP, lock account, terminate process, isolate host)
-- Responds to attacks early while minimizing false positives
-- Operates under uncertainty without knowing the true attack state
+The agent observes noisy system metrics (login rates, file access patterns, CPU usage) and learns to pick defensive actions (block IP, lock account, terminate process, isolate host) that contain attacks early while keeping false positives low. It never sees the true attack state—only the same kind of noisy signals a real monitoring system would get.
 
-## 📁 Project Structure
+**Key results (1000 episodes):**
+- 75% success rate
+- Beats all baselines (Snort, NIST 800-61, MITRE ATT&CK, threshold, random)
+- Statistically significant improvements (p < 0.05, Cohen's d up to 5.55)
+
+## Project Structure
 
 ```
 minip/
-├── main.py                    # Main entry point with CLI
+├── main.py                    # CLI entry point (preprocess + train)
 ├── requirements.txt           # Python dependencies
+├── report.tex                 # LaTeX project report
 ├── data/                      # Datasets
 │   ├── Monday-WorkingHours.pcap_ISCX.csv   # CICIDS 2017 (benign)
 │   ├── Tuesday-WorkingHours.pcap_ISCX.csv  # CICIDS 2017 (attacks)
 │   └── file.csv                            # CERT Insider Threat
 ├── src/
-│   ├── config.py              # Configuration parameters
-│   ├── preprocess.py          # Data preprocessing & feature extraction
-│   ├── attack_simulator.py    # Probabilistic attack simulation
-│   ├── incident_env.py        # Custom OpenAI Gym environment
-│   ├── agent.py               # DQN agent (with N-step, dueling)
-│   ├── train.py               # Training script
-│   └── evaluate.py            # Evaluation, statistics & visualization
-├── models/                    # Saved model checkpoints
-├── logs/                      # Training logs
-└── figures/                   # Generated visualizations
+│   ├── config.py              # Configuration (loaded from extracted_params.json)
+│   ├── preprocess.py          # Feature extraction from datasets
+│   ├── attack_simulator.py    # Brute force & ransomware FSMs
+│   ├── incident_env.py        # Custom Gymnasium environment (9D obs)
+│   ├── agent.py               # Dueling Double DQN agent
+│   ├── train.py               # Training loop + baseline comparison
+│   └── evaluate.py            # Visualization & statistical tests
+├── models/                    # Saved model weights
+├── logs/                      # Training metrics (JSON)
+└── figures/                   # Generated plots
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. Install Dependencies
+### Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run Complete Pipeline
+### Preprocess datasets
 
 ```bash
-python main.py all --episodes 500
-```
-
-This will:
-1. Preprocess the datasets
-2. Train the RL agent for 500 episodes
-3. Generate training visualizations
-4. Run a demo showing the trained agent
-
-### 3. Individual Commands
-
-```bash
-# Preprocess datasets
 python main.py preprocess
-
-# Train the agent (with all enhancements)
-python main.py train --episodes 1000 --n-step --dueling --compare
-
-# Evaluate trained model
-python main.py evaluate --analyze-policy
-
-# Generate visualizations
-python main.py visualize
-
-# Run interactive demo
-python main.py demo --interactive
 ```
 
-## 🧠 Technical Details
+Extracts Poisson distribution parameters from CICIDS 2017 and CERT datasets, saves them to `extracted_params.json`.
 
-### Enhanced Observation Space (10D)
-
-The environment provides an **enhanced 10-dimensional observation space** for better attack detection:
-
-| Feature | Description | Range |
-|---------|-------------|-------|
-| `login_rate` | Login attempts per window | [0, 200] |
-| `file_access_rate` | File accesses per window | [0, 500] |
-| `cpu_usage` | CPU usage percentage | [0, 100] |
-| `login_delta` | **Rate of change** in login attempts | [-100, 100] |
-| `file_delta` | **Rate of change** in file access | [-200, 200] |
-| `cpu_delta` | **Rate of change** in CPU usage | [-50, 50] |
-| `login_ma` | **Moving average** of login rate | [0, 200] |
-| `file_ma` | **Moving average** of file rate | [0, 500] |
-| `sustained_indicator` | **Sustained anomaly** indicator | [0, 1] |
-| `normalized_time` | Episode progress | [0, 1] |
-
-> **Note**: Rate-of-change features help detect attack **escalation** patterns.
-
-### Attack Simulation
-
-Two attack types modeled as probabilistic FSMs:
-
-**Brute-Force Attack:**
-```
-Normal → Probing → Active → Compromised
-```
-
-**Ransomware Attack:**
-```
-Normal → Execution → Encryption → Data Loss
-```
-
-### Statistical Modeling
-
-| Approach | Application |
-|----------|-------------|
-| **Poisson distributions** | Event counts (login attempts, file accesses) |
-| **Local rate modeling** | Captures burstiness in network activity |
-| **Normal distributions** | CPU usage with N(30,5) normal, N(80,5) attack |
-
-> **Dataset Note**: CICIDS 2017 provides network flow features. `Total Fwd Packets` is used as a proxy for login attempts since explicit authentication logs are unavailable.
-
-### DQN Agent Enhancements
-
-| Feature | Description | Flag |
-|---------|-------------|------|
-| **Double DQN** | Reduces overestimation bias | Default |
-| **N-step Returns** | Better temporal credit assignment | `--n-step` |
-| **Dueling Architecture** | Separate value/advantage streams | `--dueling` |
-| **Prioritized Replay** | Sample important experiences more | `--prioritized-replay` |
-
-### Reward Structure
-
-```python
-rewards = {
-    "early_containment": +50,    # Stopped attack in stage 1-2
-    "late_containment": +20,     # Stopped attack in stage 3+
-    "correct_no_action": +1,     # No action when no attack
-    "false_positive": -10,       # Action when no attack
-    "missed_attack": -30,        # Attack reached final state
-    "step_penalty": -0.1         # Encourages efficiency
-}
-```
-
-## 📊 Statistical Significance Testing
-
-The project includes rigorous statistical analysis:
+### Train the agent
 
 ```bash
-python main.py train --episodes 500 --compare
+# Basic training (1000 episodes recommended)
+python main.py train --episodes 1000
+
+# Train and compare against all baselines
+python main.py train --episodes 1000 --compare-baselines
 ```
 
-Outputs include:
-- **Welch's t-test** with p-values
-- **Cohen's d** effect size
-- **95% confidence intervals**
-- **Mann-Whitney U test** (non-parametric)
+Training automatically:
+1. Runs preprocessing (if not done already)
+2. Trains the Dueling Double DQN agent
+3. Evaluates over 100 episodes
+4. Generates all figures to `figures/`
+5. Optionally compares against 6 baselines with statistical tests
 
-Example output:
-```
-DQN vs random:
-  T-statistic: 8.4521
-  P-value: 0.000001
-  Cohen's d: 1.23
-  95% CI: (12.45, 25.67)
-  Significant: ✓
-```
-
-## 📈 Hyperparameter Sensitivity Analysis
-
-Run sensitivity studies on key hyperparameters:
-
-```python
-from src.evaluate import HyperparameterAnalyzer
-from src.train import Trainer
-
-analyzer = HyperparameterAnalyzer()
-results = analyzer.run_sensitivity_study(
-    Trainer,
-    param_name='learning_rate',
-    param_values=[1e-4, 5e-4, 1e-3, 5e-3],
-    num_episodes=200,
-    num_seeds=3
-)
-analyzer.plot_sensitivity('learning_rate')
-```
-
-## 🔧 Training Options
-
-```bash
-python main.py train \
-    --episodes 1000 \
-    --attack-type random \
-    --n-step \
-    --n-steps 3 \
-    --dueling \
-    --checkpoint-dir models \
-    --compare
-```
+### CLI options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--episodes` | Training episodes | 500 |
-| `--attack-type` | bruteforce, ransomware, both, random | random |
-| `--n-step` | Enable N-step returns | False |
-| `--n-steps` | N for N-step returns | 3 |
-| `--dueling` | Use dueling architecture | False |
-| `--no-enhanced` | Use 4D observation instead of 10D | False |
-| `--compare` | Compare with baselines + statistics | False |
+| `--episodes` | Number of training episodes | 500 |
+| `--attack-type` | `bruteforce`, `ransomware`, `both`, `random` | `random` |
+| `--compare-baselines` | Run baseline comparison with stats | off |
+| `--n-step` | Enable N-step returns | off |
+| `--n-steps` | Steps for N-step returns | 3 |
+| `--prioritized-replay` | Prioritized experience replay | off |
+| `--checkpoint-dir` | Model save directory | `models` |
+| `--log-dir` | Log directory | `logs` |
+| `--output-dir` | Figure output directory | `figures` |
 
-## 📚 References
+## Technical Details
 
-- CICIDS 2017 Dataset: Canadian Institute for Cybersecurity
-- CERT Insider Threat Dataset: Software Engineering Institute
-- DQN: Mnih et al., "Human-level control through deep reinforcement learning"
-- Double DQN: van Hasselt et al., "Deep Reinforcement Learning with Double Q-learning"
-- Dueling DQN: Wang et al., "Dueling Network Architectures for Deep Reinforcement Learning"
+### Observation Space (9D)
 
-## 🎓 Academic Rigor
+| Feature | What it captures | Range |
+|---------|-----------------|-------|
+| `login_rate` | Raw login attempts per window | [0, 200] |
+| `file_access_rate` | Raw file accesses per window | [0, 500] |
+| `cpu_usage` | CPU utilization | [0, 100] |
+| `login_delta` | Rate of change in logins | [-100, 100] |
+| `file_delta` | Rate of change in file access | [-200, 200] |
+| `cpu_delta` | Rate of change in CPU | [-50, 50] |
+| `login_ma` | Moving avg of login rate (10-step) | [0, 200] |
+| `file_ma` | Moving avg of file rate (10-step) | [0, 500] |
+| `sustained_indicator` | How long metrics have been elevated | [0, 1] |
 
-This implementation includes features expected in academic work:
+The delta and moving average features help the agent distinguish sudden attack-onset spikes from normal fluctuations.
 
-- ✅ **Poisson-based simulation** with empirical justification
-- ✅ **Statistical significance testing** (t-tests, effect sizes)
-- ✅ **Ablation study support** (baseline comparisons)
-- ✅ **Hyperparameter sensitivity analysis**
-- ✅ **Documented limitations** (proxy features, synthetic attacks)
+### Action Space
 
-## 📄 License
+| Action | Description | False positive cost |
+|--------|-------------|-------------------|
+| Do nothing | Continue monitoring | None |
+| Block IP | Block suspicious source | Low |
+| Lock account | Freeze compromised account | Medium |
+| Terminate process | Kill suspicious process | Medium |
+| Isolate host | Quarantine entire machine | High |
+
+### Attack Simulation
+
+Attacks are modeled as probabilistic finite state machines with parameters fitted from real datasets:
+
+**Brute force (SSH credential stuffing):**
+```
+Idle → Probing → Active → Compromised
+```
+
+**Ransomware (file encryption):**
+```
+Idle → Execution → Encryption → Data Loss
+```
+
+Defensive actions can interrupt transitions with stage-dependent probability (earlier = more effective).
+
+### Agent Architecture
+
+- **Dueling Double DQN** — separates state value from action advantage
+- **Network**: 128 → 64 → 32 (shared), then value stream (32 → 1) and advantage stream (32 → 5)
+- **Experience replay**: 10,000 buffer, minibatch size 64
+- **Target network**: synced every 10 episodes
+- **Epsilon**: 1.0 → 0.01, decay factor 0.995
+
+### Reward Structure
+
+| Event | Reward |
+|-------|--------|
+| Early containment (stage 0–1) | +50 |
+| Late containment (stage 2+) | +20 |
+| Correct inaction | +1 |
+| False positive | −10 |
+| Missed attack (compromise) | −30 |
+| Redundant action | −5 |
+| Per-step cost | −0.1 |
+
+### Baselines
+
+Six baselines for comparison, each evaluated over 100 episodes with identical seeds:
+
+1. **Random** — uniform random action selection
+2. **Do-nothing** — always monitors, never acts
+3. **Threshold** — fixed metric cutoffs (similar to basic SIEM rules)
+4. **Snort-inspired** — signature-style thresholding rules
+5. **NIST 800-61** — weighted impact scoring per NIST guidelines
+6. **MITRE ATT&CK** — technique detection (T1110, T1486) with severity-based response
+
+### Statistical Validation
+
+All DQN-vs-baseline comparisons include:
+- Independent samples t-test (p-values)
+- Cohen's d effect size
+- 95% confidence intervals
+
+Results are saved to `logs/statistical_results.json`.
+
+## Base Paper
+
+> Hammar, K., & Stadler, R. (2021). *Finding Effective Security Strategies through Reinforcement Learning and Self-Play.* IEEE International Conference on Network and Service Management (CNSM), pp. 113–121.
+
+Our work extends their approach by:
+- Using a **custom Gymnasium environment** instead of CyberBattleSim
+- Grounding attack simulations in **real dataset parameters** (CICIDS 2017, CERT)
+- Focusing on **incident response actions** rather than abstract network defense
+- Comparing against **industry-standard security frameworks** (Snort, NIST, MITRE)
+
+## References
+
+- Hammar & Stadler (2021) — *Finding Effective Security Strategies through RL and Self-Play* (base paper)
+- CICIDS 2017 — Canadian Institute for Cybersecurity intrusion detection dataset
+- CERT Insider Threat Dataset — Software Engineering Institute
+- Mnih et al. (2015) — *Human-level control through deep reinforcement learning*
+- Van Hasselt et al. (2016) — *Deep Reinforcement Learning with Double Q-learning*
+- Wang et al. (2016) — *Dueling Network Architectures for Deep Reinforcement Learning*
+
+## Team
+
+| Name | Roll No |
+|------|---------|
+| Pratyush Kumar | 23BCS099 |
+| Ritik Kumar Shahi | 23BCS110 |
+| Saisha Bore | 23BCS116 |
+| Aryan Talikoti | 23BCS018 |
+
+## License
 
 This project is for educational purposes as part of a mini project.
